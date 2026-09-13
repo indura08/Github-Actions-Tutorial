@@ -1,0 +1,11 @@
+name: First ever Github Action Workflow
+
+on:
+    workflow_dispatch:
+
+
+jobs:
+    say-hello-to-inline-bash:
+        runs-on: ubuntu-24.04
+        steps:
+            - run: echo "Hi, this is my first ever github action workflow"
