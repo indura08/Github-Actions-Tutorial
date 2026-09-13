@@ -1,0 +1,24 @@
+common workflow types
+=======================
+
+1. Validate
+
+	i. Lint
+	ii. Test
+	iii. Static analysis (eg. security, code quality)
+	
+2. build 
+
+	i. Executable
+	ii. Container image
+	
+3. Deploy:
+
+	i. Push based deploys
+	ii. Update tags for git-ops deploys
+	
+4. repo automations
+
+	i. Release automation's (e.g release-please)
+	ii. Stale issues/PRs
+	iii. Dependency upgrades (e.g. renovate)

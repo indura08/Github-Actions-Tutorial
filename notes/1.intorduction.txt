@@ -1,0 +1,863 @@
+1. What is GitHub Actions?
+============================
+
+GitHub Actions is GitHub's built-in automation and CI/CD system.
+
+It allows you to tell GitHub:
+
+"When something happens in my repository, automatically perform these tasks."
+
+For example:
+
+Developer pushes code
+        ↓
+GitHub detects push
+        ↓
+GitHub Actions starts
+        ↓
+Checkout code
+        ↓
+Install dependencies
+        ↓
+Run tests
+        ↓
+Build application
+        ↓
+Build Docker image
+        ↓
+Push Docker image
+        ↓
+Deploy to Kubernetes
+
+So conceptually:
+
+GitHub Actions = automation engine + CI/CD platform integrated directly into GitHub.
+
+You don't need a separate Jenkins server just to run your pipeline.
+
+
+2. Why does GitHub Actions exist?
+=======================================
+
+Imagine your team has this process:
+
+Developer
+   ↓
+git push
+   ↓
+Run tests
+   ↓
+Run lint
+   ↓
+Build
+   ↓
+Build Docker image
+   ↓
+Push image
+   ↓
+Deploy
+
+You could manually do all of that.
+
+But that's obviously terrible.
+
+So you create an automation:
+
+git push
+   ↓
+GitHub Actions
+   ↓
+everything happens automatically
+
+That's the fundamental purpose.
+
+
+3. GitHub Actions is not just CI/CD
+===================================
+
+This is an important point.
+
+People often think:
+
+GitHub Actions = CI/CD
+
+That's partially correct.
+
+It's actually a more general automation platform.
+
+You can use it for:
+
+CI
+Push
+ ↓
+Test
+ ↓
+Lint
+ ↓
+Build
+CD
+Build
+ ↓
+Docker image
+ ↓
+Registry
+ ↓
+Kubernetes
+Scheduled tasks
+Every night at 2 AM
+        ↓
+Run script
+        ↓
+Generate report
+Repository automation
+Pull request opened
+        ↓
+Run checks
+        ↓
+Comment on PR
+Security
+Push
+ ↓
+Dependency scan
+ ↓
+SAST
+ ↓
+Container scan
+
+So think:
+
+GitHub Actions = event-driven automation platform, commonly used for CI/CD.
+
+
+4. The most important concept: Workflow
+==========================================
+
+This is probably the first GitHub Actions word you need to understand.
+
+A workflow is the complete automation definition.
+
+For example:
+
+.github/
+└── workflows/
+    └── ci.yml
+
+ci.yml might contain:
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npm install
+
+      - run: npm test
+
+This entire file is a workflow.
+
+Think of it as:
+
+"Here is the entire automation process I want GitHub to execute."
+
+
+5. Where do workflows live?
+============================
+
+This is VERY important.
+
+Inside your repository:
+
+my-project/
+│
+├── src/
+├── package.json
+├── Dockerfile
+│
+└── .github/
+    └── workflows/
+        └── ci.yml
+
+The special directory is:
+
+.github/workflows/
+
+Any workflow YAML files placed there can be picked up by GitHub Actions.
+
+For example:
+
+.github/workflows/
+├── ci.yml
+├── docker.yml
+├── deploy.yml
+└── security.yml
+
+You can have multiple workflows.
+
+
+6. Workflow → Jobs → Steps
+=============================
+
+This is probably the most important hierarchy to understand.
+
+GitHub Actions has roughly:
+
+Workflow
+   │
+   ├── Job
+   │    ├── Step
+   │    ├── Step
+   │    └── Step
+   │
+   ├── Job
+   │    ├── Step
+   │    └── Step
+   │
+   └── Job
+        ├── Step
+        └── Step
+
+Let's break that down.
+
+
+7. What is a Job?
+===================
+
+A job is a group of steps that execute together on a runner.
+
+Example:
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npm install
+
+      - run: npm test
+
+Here:
+
+jobs:
+  test:
+
+means:
+
+Create a job called test.
+
+That job has three steps:
+
+test job
+   │
+   ├── checkout
+   ├── npm install
+   └── npm test
+
+
+
+
+8. What is a Step?
+===================
+
+A step is one individual operation inside a job.
+
+For example:
+
+steps:
+
+  - uses: actions/checkout@v4
+
+  - run: npm install
+
+  - run: npm test
+
+There are three steps.
+
+The first:
+
+- uses: actions/checkout@v4
+
+uses an existing GitHub Action.
+
+The other two:
+
+- run: npm install
+- run: npm test
+
+execute shell commands.
+
+So:
+
+Job
+ │
+ ├── Step 1 → checkout
+ ├── Step 2 → install
+ └── Step 3 → test
+
+
+9. What is a Runner?
+=====================
+
+This is another very important concept.
+
+Your workflow needs somewhere to execute.
+
+That's the runner.
+
+For example:
+
+runs-on: ubuntu-latest
+
+means:
+
+Run this job on an Ubuntu machine provided by GitHub.
+
+Conceptually:
+
+GitHub
+   │
+   │ starts
+   ↓
+Runner
+   │
+   ├── checkout
+   ├── install
+   ├── test
+   └── build
+
+You already know Jenkins, so this should immediately click.
+
+Think:
+
+Jenkins
+   ↓
+Jenkins Agent
+
+versus:
+
+GitHub Actions
+   ↓
+Runner
+
+A GitHub-hosted runner is basically a machine/environment that executes your job.
+
+
+10. GitHub-hosted vs Self-hosted runners
+=========================================
+
+There are two major types.
+
+GitHub-hosted
+
+GitHub gives you the machine.
+
+GitHub
+   ↓
+Ubuntu runner
+   ↓
+Your workflow
+
+You don't manage the machine.
+
+Self-hosted
+
+You provide the machine.
+
+GitHub
+   ↓
+Your runner
+   ↓
+Your infrastructure
+
+For example:
+
+AWS EC2
+Azure VM
+On-prem server
+Kubernetes infrastructure
+
+You install/configure the GitHub Actions runner there.
+
+This is something you'll want to understand deeply later because you already know infrastructure and Kubernetes.
+
+
+11. What is on:?
+===================
+
+Now we're getting into GitHub-specific concepts.
+
+Consider:
+
+on:
+  push:
+    branches:
+      - main
+
+This means:
+
+When someone pushes to main, execute this workflow.
+
+on defines the event that triggers the workflow.
+
+For example:
+
+on:
+  push:
+
+means:
+
+Code pushed
+   ↓
+Workflow starts
+
+You can also do:
+
+on:
+  pull_request:
+
+Meaning:
+
+Pull request created/updated
+        ↓
+Workflow starts
+
+Or:
+
+on:
+  workflow_dispatch:
+
+Meaning:
+
+User manually clicks "Run workflow"
+        ↓
+Workflow starts
+
+Or:
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+
+Meaning:
+
+Scheduled time
+     ↓
+Workflow starts
+
+
+12. So far, the mental model is
+===================================
+
+You should have this picture in your head:
+
+                    GitHub Event
+                         │
+             ┌───────────┼────────────┐
+             │           │            │
+           push       pull_request   schedule
+             │           │            │
+             └───────────┼────────────┘
+                         ↓
+                     Workflow
+                         │
+              ┌──────────┼──────────┐
+              ↓          ↓          ↓
+            Job A      Job B      Job C
+              │
+          ┌───┼────┐
+          ↓   ↓    ↓
+        Step Step Step
+              │
+              ↓
+           Runner
+
+If you understand this diagram, you understand the foundation of GitHub Actions.
+
+13. What is uses:?
+=====================
+
+You'll see this constantly:
+
+- uses: actions/checkout@v4
+
+uses means:
+
+Use an existing Action.
+
+Instead of writing all the logic for checking out a Git repository yourself, GitHub provides an Action for it.
+
+actions/checkout
+        ↓
+checkout repository
+
+There are thousands of reusable Actions in the ecosystem.
+
+For example:
+
+- uses: actions/checkout@v4
+
+Then:
+
+- uses: actions/setup-node@v4
+
+Then:
+
+- uses: actions/setup-python@v5
+
+etc.
+
+
+14. What is run:?
+==================
+
+run means:
+
+Execute a shell command on the runner.
+
+For example:
+
+- run: npm install
+
+or:
+
+- run: npm test
+
+or:
+
+- run: docker build -t myapp .
+
+or:
+
+- run: go test ./...
+
+This should be extremely familiar to you.
+
+It's basically executing commands inside the runner environment.
+
+
+15. uses vs run
+=================
+
+Remember this simple distinction:
+
+- uses: something
+
+means:
+
+Use an existing reusable Action.
+
+While:
+
+- run: something
+
+means:
+
+Execute this command yourself.
+
+For example:
+
+steps:
+
+  - uses: actions/checkout@v4
+
+  - run: go test ./...
+
+  - run: docker build -t myapp .
+  
+
+16. Multiple jobs
+===================
+
+Now things get more interesting.
+
+You can have:
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: go test ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: golangci-lint run
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: go build .
+
+Conceptually:
+
+                 Workflow
+                    │
+       ┌────────────┼────────────┐
+       ↓            ↓            ↓
+     test          lint        build
+       │            │            │
+     runner       runner       runner
+
+By default, independent jobs can run in parallel.
+
+This is one of the things you'll appreciate coming from CI/CD.
+
+17. Job dependencies with needs
+=================================
+
+Suppose you don't want build to happen until testing succeeds.
+
+You can write:
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: go test ./...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - run: go build .
+
+Now:
+
+test
+ ↓
+success
+ ↓
+build
+
+If test fails:
+
+test
+ ↓
+FAILED
+ ↓
+build doesn't run
+
+So:
+
+needs: test
+
+means:
+
+This job depends on the test job.
+
+
+18. A realistic CI pipeline
+================================
+
+Now let's put everything together.
+
+name: Go CI
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - run: go test ./...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      - run: go build ./...
+
+Read it like English:
+
+When somebody pushes to main or creates a PR targeting main, start this workflow.
+
+Then:
+
+Run the test job on Ubuntu.
+
+Then:
+
+Checkout the repository.
+
+Then:
+
+Install/setup Go.
+
+Then:
+
+Run the tests.
+
+Then:
+
+If tests succeed, run the build job.
+
+That's GitHub Actions at its core.
+
+
+19. How this relates to Jenkins
+================================
+
+Because you know Jenkins, this comparison will help:
+
+Jenkins
+Jenkinsfile
+     ↓
+Pipeline
+     ↓
+Stages
+     ↓
+Steps
+     ↓
+Agent
+GitHub Actions
+workflow.yml
+     ↓
+Workflow
+     ↓
+Jobs
+     ↓
+Steps
+     ↓
+Runner
+
+They're not exactly identical, but conceptually they're very similar.
+
+
+21. The really interesting part: GitHub is already where your code lives
+============================================================================
+
+This is one of the biggest reasons Actions became popular.
+
+With Jenkins, you often have:
+
+GitHub
+   │
+   ↓
+Jenkins
+   │
+   ↓
+Jenkins agent
+   │
+   ↓
+Docker
+   │
+   ↓
+Kubernetes
+
+With GitHub Actions:
+
+GitHub
+ │
+ ├── Source code
+ ├── Pull requests
+ ├── Issues
+ ├── Permissions
+ ├── Secrets
+ │
+ └── Actions
+       │
+       ↓
+    Runner
+       │
+       ↓
+    Docker
+       │
+       ↓
+  Kubernetes
+
+Everything is much more tightly integrated.
+
+
+22. What you'll learn next - monw hari tutorial ekn miss wenwa nm methnain balal igenagnna one topics tika methn thiyenwa
+============================================================================================================================
+
+Don't try to memorize everything at once.
+
+I'd learn GitHub Actions in this order:
+
+1. Workflow
+       ↓
+2. Events (`on`)
+       ↓
+3. Jobs
+       ↓
+4. Steps
+       ↓
+5. Runners
+       ↓
+6. `run`
+       ↓
+7. `uses`
+       ↓
+8. Job dependencies (`needs`)
+       ↓
+9. Conditions (`if`)
+       ↓
+10. Variables
+       ↓
+11. Contexts
+       ↓
+12. Secrets
+       ↓
+13. Artifacts
+       ↓
+14. Caching
+       ↓
+15. Matrix builds
+       ↓
+16. Environments
+       ↓
+17. Reusable workflows
+       ↓
+18. Composite Actions
+       ↓
+19. Permissions / GITHUB_TOKEN
+       ↓
+20. Self-hosted runners
+       ↓
+21. Docker CI/CD
+       ↓
+22. Kubernetes deployment
+       ↓
+23. Production pipeline architecture
+
+And for your level, I'd put extra emphasis on contexts, expressions, permissions, secrets, reusable workflows, self-hosted runners, and security. Those are the areas where you'll start going beyond "I can write a YAML pipeline" into actually understanding GitHub Actions as an engineering platform.
+
+The one sentence I want you to remember from this first lesson is:
+
+GitHub Actions is an event-driven automation platform where a workflow is triggered by an event, workflows contain jobs, jobs run on runners, and jobs contain steps that execute commands or reusable Actions.

@@ -1,0 +1,170 @@
+3. Yes, there are MANY predefined events
+============================================
+
+
+| Event                 | What causes it?                        |
+| --------------------- | -------------------------------------- |
+| `push`                | Code/tag is pushed                     |
+| `pull_request`        | PR activity                            |
+| `issues`              | Issue activity                         |
+| `issue_comment`       | Comment on an issue/PR                 |
+| `release`             | Release activity                       |
+| `create`              | Branch/tag created                     |
+| `delete`              | Branch/tag deleted                     |
+| `fork`                | Repository forked                      |
+| `workflow_dispatch`   | Human manually starts workflow         |
+| `schedule`            | Scheduled time arrives                 |
+| `workflow_run`        | Another workflow completes             |
+| `workflow_call`       | Another workflow calls this workflow   |
+| `repository_dispatch` | External system sends a dispatch event |
+
+
+4. Where can you see the complete list?
+========================================
+
+This is the documentation page you should bookmark:
+
+GitHub Docs — Events that trigger workflows
+
+GitHub: Triggering a workflow / available events : https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow
+
+And the broader reference:
+
+GitHub Actions Workflows and Actions Reference: https://docs.github.com/en/actions/reference/workflows-and-actions
+
+The second one is particularly useful because it contains references for:
+
+Workflow syntax
+Events
+Variables
+Expressions
+Contexts
+Environments
+Caching
+Reusable workflows
+Metadata
+
+
+5. But there's another level: event filters
+=============================================
+
+This is where GitHub Actions starts becoming more interesting.
+
+You don't necessarily say:
+
+on:
+  push:
+
+You can say:
+
+on:
+  push:
+    branches:
+      - main
+
+Now you're saying:
+
+Listen for push, but only when the push is to main.
+
+So imagine:
+
+Developer pushes to feature/login
+             ↓
+         push event
+             ↓
+     Is branch = main?
+             ↓
+             NO
+             ↓
+       Don't run
+
+But:
+
+Developer pushes to main
+             ↓
+         push event
+             ↓
+     Is branch = main?
+             ↓
+            YES
+             ↓
+       Run workflow
+
+GitHub officially calls these filters. The push event supports things like branches, branches-ignore, tags, paths, etc.
+
+6. You can filter by files too
+===============================
+
+For example:
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+
+Now imagine your repository:
+
+project/
+├── backend/
+├── frontend/
+└── docs/
+
+If someone changes:
+
+backend/user.go
+
+the workflow runs.
+
+But if someone changes:
+
+docs/README.md
+
+the workflow won't run because the changed file doesn't match the configured path filter.
+
+
+8. Now your event-driven question
+=====================================
+
+This is the really important part.
+
+You asked:
+
+"Why call GitHub Actions an event-driven automation platform? Isn't it triggered by a developer or DevOps engineer in some cases?"
+
+Yes.
+
+But the developer is not necessarily directly triggering the workflow.
+
+Consider this:
+
+Developer
+    │
+    │ git push
+    ↓
+GitHub
+    │
+    │ generates push event
+    ↓
+GitHub Actions
+    │
+    ↓
+Workflow
+    │
+    ↓
+Runner
+    │
+    ↓
+Tests
+
+The developer performed:
+
+git push
+
+But they didn't do:
+
+run-my-ci-workflow()
+
+Instead, their action caused an event, and GitHub Actions was listening for that event.
+
+That's what makes it event-driven.
+
