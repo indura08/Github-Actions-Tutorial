@@ -1,5 +1,6 @@
 name: Workflows jobs steps
 
+#methna on kiynne event ek puh da PR da nattnm nikna workflow_dispatch ekkd kiyna eka
 on:
     workflow_dispatch:
 
