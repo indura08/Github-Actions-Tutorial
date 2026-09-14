@@ -1,5 +1,6 @@
 name: Triggering Events
 
+#me eka eka trigerring action walt adlawa krnna one de krla blnna oen
 on:
     push:
         branches:
