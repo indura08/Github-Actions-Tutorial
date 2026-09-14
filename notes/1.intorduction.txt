@@ -352,6 +352,60 @@ Runner
 
 A GitHub-hosted runner is basically a machine/environment that executes your job.
 
+runner architecture:
+
+Your GitHub repository
+        │
+        │ workflow triggered
+        ▼
+   GitHub Actions
+        │
+        │ create/select runner
+        ▼
+┌─────────────────────────┐
+│      Runner machine     │
+│                         │
+│  Ubuntu 24.04           │
+│  CPU / RAM / Disk       │
+│  Git                     │
+│  Shell                   │
+│  Python                  │
+│  etc.                    │
+│                         │
+│  ┌───────────────────┐  │
+│  │ Your job          │  │
+│  │                   │  │
+│  │ git clone         │  │
+│  │ go test           │  │
+│  │ npm test          │  │
+│  │ docker build      │  │
+│  └───────────────────┘  │
+└─────────────────────────┘
+
+Q:
+
+Is the runner an actual computer?
+
+Yes.
+
+But it doesn't necessarily mean a physical computer sitting somewhere.
+
+For the normal GitHub-hosted runners you're using, GitHub provides the compute environment for you. You can think of it as a temporary virtual machine / hosted machine that GitHub makes available to your workflow.
+
+For example:
+
+runs-on: ubuntu-24.04
+
+means approximately:
+
+Give this job a GitHub-hosted Ubuntu 24.04 machine.
+
+Your workflow gets a machine with CPU, RAM, storage, operating system, networking, and various preinstalled tools.
+
+You don't have to create the VM yourself.
+
+That's one of the major conveniences of GitHub Actions.
+
 
 10. GitHub-hosted vs Self-hosted runners
 =========================================
