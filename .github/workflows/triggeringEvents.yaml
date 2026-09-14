@@ -19,6 +19,7 @@ on:
         
     workflow_dispatch:
 
+#me job ek run wenne workflow ek manually run kalama echchri , anikwa wenama e e event ekt anuwai run wenne
 jobs:
     echo-event:
         runs-on: ubuntu-24.04
