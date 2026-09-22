@@ -1,0 +1,3 @@
+this is the excluded file 
+
+and its contents

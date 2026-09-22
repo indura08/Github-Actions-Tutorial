@@ -9,11 +9,11 @@ on:
     pull_request:
         types:
             - opened
-            - synchronize
+            - synchronize 
             - reopened
         paths:
-            - "03-core-features/filters/*md"
-            - "!03-core-features/filters/*txt"
+            - "filters/*md"
+            - "!filters/*txt"
 
     schedule:
         - cron: "0 0 * * *" # midnight utc
