@@ -29,4 +29,7 @@ jobs:
               run: |
                 echo "=== $GITHUB_EVENT_NAME payload ==="
                 cat "$GITHUB_EVENT_PATH"
+
+            - name: testing another console log
+              run: echo "This line was added to test another step on the trigger event"
                 
