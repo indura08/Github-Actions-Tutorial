@@ -12,8 +12,8 @@ on:
             - synchronize 
             - reopened
         paths:
-            - "filters/*.md"
-            - "!filters/*.txt"
+            - ".github/workflows/filters/*.md"
+            - ".github/workflows/filters/!filters/*.txt"
 
     schedule:
         - cron: "0 0 * * *" # midnight utc
