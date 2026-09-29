@@ -15,8 +15,8 @@ on:
             - ".github/workflows/filters/*.md"
             - ".github/workflows/filters/!filters/*.txt"
 
-    schedule:
-        - cron: "0 0 * * *" # midnight utc
+    # schedule:
+    #     - cron: "0 0 * * *" # midnight utc
         
     workflow_dispatch:
 
