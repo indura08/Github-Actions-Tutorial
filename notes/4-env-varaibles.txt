@@ -1,0 +1,814 @@
+1. First: where does an environment variable actually exist?
+
+Suppose you have:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - run: echo "$APP_ENV"
+
+If APP_ENV exists in the runner's environment, Bash can read it.
+
+So:
+
+GitHub Actions
+      │
+      │ starts job
+      ▼
+Ubuntu runner
+      │
+      ├── environment variables
+      │
+      ├── filesystem
+      ├── installed tools
+      └── your repository
+             │
+             ▼
+         your commands
+
+GitHub Actions gives you several mechanisms for putting values into that environment.
+
+2. The basic env: keyword
+
+The simplest way is:
+
+env:
+  APP_ENV: production
+
+For example:
+
+name: Environment Example
+
+on:
+  workflow_dispatch:
+
+env:
+  APP_NAME: my-app
+  APP_ENV: development
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - run: |
+          echo "Application: $APP_NAME"
+          echo "Environment: $APP_ENV"
+
+Output:
+
+Application: my-app
+Environment: development
+
+The important thing is where you put env:.
+
+GitHub supports three main scopes:
+
+workflow
+   │
+   ├── job
+   │
+   │    ├── step
+   │    ├── step
+   │    └── step
+   │
+   └── job
+
+And env: can be placed at all three levels.
+
+3. Workflow-level environment variables
+
+You can put env: at the top level:
+
+name: My Workflow
+
+on:
+  push:
+
+env:
+  APP_NAME: caprome
+  NODE_ENV: test
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - run: echo "$APP_NAME"
+      - run: echo "$NODE_ENV"
+
+These variables are available throughout the workflow's jobs and steps.
+
+Conceptually:
+
+Workflow
+│
+├── APP_NAME=caprome
+├── NODE_ENV=test
+│
+├── Job A
+│    └── steps can access them
+│
+└── Job B
+     └── steps can access them
+
+This is useful for values that are common across the entire workflow.
+
+4. Job-level environment variables
+
+You can instead define them for one job:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+    env:
+      APP_ENV: test
+      DATABASE_NAME: caprome_test
+
+    steps:
+      - run: echo "$APP_ENV"
+      - run: echo "$DATABASE_NAME"
+
+  deploy:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - run: echo "$APP_ENV"
+
+The test job gets:
+
+APP_ENV=test
+DATABASE_NAME=caprome_test
+
+But deploy doesn't automatically get them.
+
+So:
+
+workflow env
+       ↓
+   all jobs
+
+job env
+       ↓
+   only that job
+
+step env
+       ↓
+   only that step
+5. Step-level environment variables
+
+You can make a variable available only to one step:
+
+steps:
+
+  - name: Build
+    env:
+      BUILD_MODE: production
+    run: |
+      echo "Build mode: $BUILD_MODE"
+
+  - name: Test
+    run: |
+      echo "$BUILD_MODE"
+
+The output would effectively be:
+
+Build mode: production
+
+            ← BUILD_MODE doesn't exist here
+
+This is useful when a variable is only relevant to a particular command.
+
+6. Scope hierarchy
+
+This is one of the most important things to understand.
+
+Imagine:
+
+env:
+  APP_ENV: workflow
+
+jobs:
+  test:
+    env:
+      APP_ENV: job
+
+    steps:
+      - name: Test
+        env:
+          APP_ENV: step
+        run: echo "$APP_ENV"
+
+What gets printed?
+
+step
+
+Because the more specific scope overrides the broader scope.
+
+Think:
+
+Workflow
+    │
+    │ APP_ENV=workflow
+    ▼
+Job
+    │
+    │ APP_ENV=job
+    ▼
+Step
+    │
+    │ APP_ENV=step
+    ▼
+Command
+
+The closest definition wins.
+
+7. You can also set environment variables dynamically
+
+This is where GitHub Actions becomes more interesting.
+
+Suppose one step calculates something:
+
+steps:
+  - name: Calculate version
+    run: echo "VERSION=1.5.0" >> "$GITHUB_ENV"
+
+  - name: Use version
+    run: echo "Version is $VERSION"
+
+The first step writes:
+
+VERSION=1.5.0
+
+into the special GitHub Actions environment file:
+
+$GITHUB_ENV
+
+GitHub then makes that variable available to subsequent steps in the same job.
+
+So:
+
+Step 1
+  │
+  │ writes VERSION
+  ▼
+GITHUB_ENV
+  │
+  ▼
+GitHub Actions updates environment
+  │
+  ▼
+Step 2
+  │
+  └── $VERSION = 1.5.0
+
+This is extremely useful.
+
+Important detail
+
+The step that writes to $GITHUB_ENV doesn't get the updated variable itself.
+
+For example:
+
+- run: |
+    echo "VERSION=1.5.0" >> "$GITHUB_ENV"
+    echo "$VERSION"
+
+Don't expect the second echo to see 1.5.0.
+
+The variable becomes available to later steps.
+
+GitHub documents $GITHUB_ENV as the mechanism for setting environment variables that subsequent steps in a job can access.
+
+8. Example you'll actually use in CI/CD
+
+Imagine you build a Docker image.
+
+steps:
+
+  - uses: actions/checkout@v4
+
+  - name: Generate image tag
+    run: |
+      VERSION="1.5.${GITHUB_RUN_NUMBER}"
+      echo "IMAGE_TAG=$VERSION" >> "$GITHUB_ENV"
+
+  - name: Build Docker image
+    run: |
+      docker build \
+        -t myapp:$IMAGE_TAG \
+        .
+
+The first step creates:
+
+IMAGE_TAG=1.5.123
+
+Then the next step can use:
+
+$IMAGE_TAG
+
+This pattern is very common.
+
+9. GitHub also provides built-in environment variables
+
+This is where GitHub Actions differs from just manually creating environment variables.
+
+GitHub automatically provides many variables.
+
+For example:
+
+GITHUB_REPOSITORY
+GITHUB_REF
+GITHUB_SHA
+GITHUB_ACTOR
+GITHUB_WORKFLOW
+GITHUB_RUN_ID
+GITHUB_RUN_NUMBER
+GITHUB_EVENT_NAME
+GITHUB_EVENT_PATH
+
+You already used one:
+
+run: |
+  echo "=== $GITHUB_EVENT_NAME payload ==="
+  cat "$GITHUB_EVENT_PATH"
+
+Those aren't variables you created.
+
+GitHub created them for the runner.
+
+For example:
+
+GITHUB_REPOSITORY
+        ↓
+indura08/Github-Actions-Tutorial
+
+and:
+
+GITHUB_EVENT_NAME
+        ↓
+pull_request
+
+and:
+
+GITHUB_SHA
+        ↓
+a particular commit SHA
+
+GitHub calls these default environment variables.
+
+10. Why are these useful?
+
+Imagine your deployment workflow needs to know:
+
+Which commit am I deploying?
+
+You don't need to manually create:
+
+env:
+  COMMIT_SHA: ...
+
+GitHub already provides:
+
+$GITHUB_SHA
+
+So:
+
+- run: echo "Deploying commit $GITHUB_SHA"
+
+Similarly:
+
+- run: echo "Repository: $GITHUB_REPOSITORY"
+
+or:
+
+- run: echo "Triggered by: $GITHUB_ACTOR"
+
+or:
+
+- run: echo "Event: $GITHUB_EVENT_NAME"
+11. Environment variables vs contexts
+
+This is probably the most important next concept after basic env.
+
+You'll see GitHub Actions code like:
+
+${{ github.repository }}
+
+while shell commands use:
+
+$GITHUB_REPOSITORY
+
+They are related, but they are not the same mechanism.
+
+GitHub Actions has something called contexts.
+
+For example:
+
+${{ github.repository }}
+
+comes from the github context.
+
+You can have:
+
+${{ github.sha }}
+${{ github.ref }}
+${{ github.actor }}
+${{ github.event_name }}
+
+Whereas inside Bash you might use:
+
+$GITHUB_SHA
+$GITHUB_REF
+$GITHUB_ACTOR
+$GITHUB_EVENT_NAME
+
+So don't think:
+
+${{ github.sha }}
+
+is simply Bash syntax.
+
+It isn't.
+
+It's GitHub Actions expression syntax.
+
+12. Why does GitHub have both?
+
+Because GitHub needs to evaluate some values before the runner executes the command.
+
+For example:
+
+if: ${{ github.ref == 'refs/heads/main' }}
+
+This isn't a Bash command.
+
+GitHub evaluates the expression:
+
+github.ref == 'refs/heads/main'
+
+and decides whether the step should run.
+
+But:
+
+run: echo "$GITHUB_REF"
+
+is executed by the shell on the runner.
+
+So you have two levels:
+
+GitHub Actions engine
+        │
+        │ evaluates:
+        │ ${{ github.xxx }}
+        ▼
+Runner
+        │
+        │ executes:
+        │ $GITHUB_XXX
+        ▼
+Shell / program
+
+This distinction will become very important when you start learning contexts and expressions.
+
+13. Environment variables vs secrets
+
+Now we get to another extremely important distinction.
+
+This is okay:
+
+env:
+  APP_NAME: caprome
+
+because caprome isn't sensitive.
+
+But don't do:
+
+env:
+  DATABASE_PASSWORD: my-secret-password
+
+for a real repository.
+
+Instead, GitHub provides Secrets.
+
+For example, you can store:
+
+DATABASE_PASSWORD
+AWS_ACCESS_KEY
+DOCKER_PASSWORD
+API_KEY
+
+as repository/environment/organization secrets.
+
+Then reference them:
+
+env:
+  DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+
+or directly:
+
+- run: ./deploy.sh
+  env:
+    DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+
+The secret value isn't stored directly in your YAML.
+
+14. So think about three different things
+
+This distinction is very important:
+
+Normal environment variable
+env:
+  APP_ENV: production
+
+Public configuration.
+
+GitHub default variable
+$GITHUB_SHA
+
+Automatically provided by GitHub.
+
+Secret
+${{ secrets.DATABASE_PASSWORD }}
+
+Sensitive value stored securely in GitHub.
+
+Conceptually:
+
+                    Variables
+                       │
+          ┌────────────┼────────────┐
+          ↓            ↓            ↓
+      Your env     GitHub vars    Secrets
+          │            │            │
+    APP_ENV=test    GITHUB_SHA   DB_PASSWORD
+15. Don't confuse env with GitHub Environments
+
+There's another terminology trap.
+
+GitHub has:
+
+env:
+
+and also GitHub Environments such as:
+
+development
+staging
+production
+
+They are different things.
+
+For example:
+
+jobs:
+  deploy:
+    environment: production
+
+This means:
+
+Run this job against the GitHub Environment called production.
+
+That environment can have its own:
+
+secrets
+variables
+protection rules
+required approvals
+deployment tracking
+
+For example:
+
+GitHub Environment
+        │
+        └── production
+              │
+              ├── Secrets
+              ├── Variables
+              └── Protection rules
+
+Then:
+
+jobs:
+  deploy:
+    environment: production
+
+associates the job with that environment.
+
+This is not the same thing as:
+
+env:
+  APP_ENV: production
+
+The names are confusing, but they're different concepts.
+
+16. GitHub Variables
+
+GitHub also has a dedicated Variables feature.
+
+Instead of:
+
+env:
+  APP_NAME: caprome
+
+you can store configuration at GitHub's repository/organization/environment level and access it using:
+
+${{ vars.APP_NAME }}
+
+For example:
+
+env:
+  APP_NAME: ${{ vars.APP_NAME }}
+
+Variables are intended for configuration data that doesn't need the secrecy protections of secrets.
+
+So:
+
+vars
+  ↓
+non-sensitive configuration
+
+secrets
+  ↓
+sensitive configuration
+
+For example:
+
+vars:
+  AWS_REGION=ap-south-1
+  APP_NAME=caprome
+
+secrets:
+  AWS_ACCESS_KEY=...
+  AWS_SECRET_KEY=...
+17. A realistic example
+
+Imagine you eventually create a deployment pipeline:
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+env:
+  APP_NAME: caprome
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+
+    environment: production
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - name: Build
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "Building $APP_NAME"
+          echo "Image tag: $IMAGE_TAG"
+
+          docker build \
+            -t "$APP_NAME:$IMAGE_TAG" \
+            .
+
+      - name: Deploy
+        env:
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+        run: |
+          ./deploy.sh
+
+Now several concepts are working together:
+
+APP_NAME
+    ↓
+workflow env
+
+IMAGE_TAG
+    ↓
+step env
+    ↓
+GitHub context → github.sha
+
+DATABASE_PASSWORD
+    ↓
+GitHub secret
+    ↓
+environment variable inside deployment step
+
+environment: production
+    ↓
+GitHub Environment
+
+This is much closer to what you'll see in real CI/CD.
+
+18. One more thing: variables between jobs
+
+This is an important limitation.
+
+Suppose:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "VERSION=1.2.3" >> "$GITHUB_ENV"
+
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "$VERSION"
+
+deploy will not automatically receive VERSION.
+
+Why?
+
+Because these are separate jobs and normally separate runner environments:
+
+Job: build
+   │
+   └── Runner A
+         │
+         └── VERSION=1.2.3
+
+              ❌ doesn't automatically exist here
+
+Job: deploy
+   │
+   └── Runner B
+
+For passing data between jobs, you'll eventually learn job outputs and artifacts.
+
+For example, job outputs can be used for small values such as:
+
+build job
+    ↓
+VERSION=1.2.3
+    ↓
+job output
+    ↓
+deploy job
+
+Artifacts are more appropriate for files.
+
+This distinction is very important when you start building multi-job pipelines.
+
+19. Your learning map for environment variables
+
+I'd learn this topic in this order:
+
+1. env:
+   │
+   ├── workflow-level
+   ├── job-level
+   └── step-level
+   │
+2. Variable precedence
+   │
+3. $GITHUB_ENV
+   │
+4. GitHub default environment variables
+   │
+5. Contexts
+   │
+   ├── github
+   ├── env
+   ├── vars
+   └── secrets
+   │
+6. GitHub Variables
+   │
+7. GitHub Secrets
+   │
+8. GitHub Environments
+   │
+9. Job outputs
+   │
+10. Artifacts
+
+The big mental model I want you to have right now is:
+
+                    GitHub Actions
+                         │
+             ┌───────────┴───────────┐
+             │                       │
+       GitHub-side              Runner-side
+       information              environment
+             │                       │
+      ${{ github.sha }}        $GITHUB_SHA
+      ${{ secrets.X }}         $MY_VARIABLE
+      ${{ vars.X }}            $APP_ENV
+             │                       │
+             └───────────┬───────────┘
+                         │
+                       Steps
+                         │
+                   your commands
+
+Once you understand this distinction, contexts + expressions will make much more sense, and that's probably the next GitHub Actions topic I'd learn after env.
+
+The official GitHub reference covers default environment variables, env, variables, contexts, and secrets.
