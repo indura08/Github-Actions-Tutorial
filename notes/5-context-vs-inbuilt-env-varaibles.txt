@@ -1,0 +1,561 @@
+Tutorial Note:
+
+Variables can be passed using:
+--------------------------------
+
+1. intra-job outputs --> inputs:
+
+	1. Write to $GITHUB_OUTPUT
+	2. refrenece with ${{}} syntax
+	
+2. Intra-job env var
+
+	1. write to $GITHUB_ENV
+	2. referenec with $VAR
+	
+3. intra job output --> input:
+
+	1. writes to $GITHUB_OUTPUT
+	2. reference in job "outputs"
+	3. set "needs"
+	4. Reference with ${{}} syntax
+	
+####################################################################################################################################################################################################
+
+AND PLEASE NOTE THAT YOU MUST DEFINE A STEP ID TO REFRENECE ITS OUTPUTS , WITHOUT THAT YOU CANNOT USE ITS OUTPUTS , IN OUR EXMAPLE CODE LOOK HOW WE ADD ID TO THE STEP AND USED IT TO REFERENECE
+
+####################################################################################################################################################################################################
+
+context vs env varibles explained futher more:
+------------------------------------------------
+
+1. First, remember what the runner is
+
+You already understood this part:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+GitHub gives your job a machine:
+
+GitHub
+   │
+   ▼
+Ubuntu runner
+   │
+   ├── your repository
+   ├── Bash
+   ├── Python
+   ├── Git
+   └── environment variables
+
+Your commands run inside that Ubuntu machine.
+
+For example:
+
+- run: echo "hello"
+
+The echo command is running on the Ubuntu runner.
+
+2. GitHub automatically puts some information into that runner
+
+Suppose GitHub starts your workflow because you pushed to:
+
+main
+
+GitHub knows a lot of information about that execution:
+
+Repository = indura08/Github-Actions-Tutorial
+Branch = main
+Commit = abc123...
+Event = push
+Actor = indura
+Workflow = Triggering Events
+
+GitHub automatically makes many of these values available to your workflow.
+
+These are called default environment variables.
+
+For example:
+
+GITHUB_REPOSITORY
+GITHUB_REF
+GITHUB_SHA
+GITHUB_EVENT_NAME
+GITHUB_ACTOR
+
+You didn't create them.
+
+GitHub created them for you.
+
+3. Think of them as normal environment variables
+
+This is the simplest way to understand them.
+
+You already know this:
+
+env:
+  APP_NAME: caprome
+
+Then:
+
+- run: echo "$APP_NAME"
+
+You get:
+
+caprome
+
+GitHub does essentially the same thing automatically:
+
+GITHUB_REPOSITORY = indura08/Github-Actions-Tutorial
+GITHUB_EVENT_NAME = push
+GITHUB_SHA = abc123...
+
+Therefore you can do:
+
+- run: |
+    echo "$GITHUB_REPOSITORY"
+    echo "$GITHUB_EVENT_NAME"
+    echo "$GITHUB_SHA"
+
+The runner's shell can read those values.
+
+That's all a default environment variable is at the basic level.
+
+4. So what's a context?
+
+This is where it gets confusing.
+
+GitHub Actions also has a way of accessing this information using:
+
+${{ ... }}
+
+For example:
+
+${{ github.repository }}
+
+This means:
+
+Give me the repository information from the GitHub context.
+
+So these two things can represent related information:
+
+$GITHUB_REPOSITORY
+
+and:
+
+${{ github.repository }}
+
+You can think of them as:
+
+
+Context:
+${{ github.repository }}
+
+They are not literally the same mechanism, but for many basic cases they expose related information.
+
+5. Why does GitHub have contexts then?
+
+Because not everything in GitHub Actions is a shell command.
+
+Look at this:
+
+if: ${{ github.ref == 'refs/heads/main' }}
+
+There is no shell here.
+
+GitHub needs to decide:
+
+Should I run this step or not?
+
+So GitHub itself evaluates:
+
+${{ github.ref == 'refs/heads/main' }}
+
+before the command runs.
+
+That's where contexts become useful.
+
+6. Compare these two
+Case A — command running on the runner
+- run: echo "$GITHUB_REPOSITORY"
+
+The flow is:
+
+GitHub
+   ↓
+starts runner
+   ↓
+runner has GITHUB_REPOSITORY
+   ↓
+Bash executes
+   ↓
+echo "$GITHUB_REPOSITORY"
+Case B — GitHub deciding something
+- if: ${{ github.ref == 'refs/heads/main' }}
+  run: echo "Deploying"
+
+The flow is:
+
+GitHub Actions engine
+        ↓
+checks github.ref
+        ↓
+Is it main?
+        ↓
+YES
+        ↓
+tell runner to execute the step
+        ↓
+echo "Deploying"
+
+So the key distinction is:
+
+Environment variables are values available to the process running on the runner.
+
+Contexts are information GitHub Actions can use when processing your workflow.
+
+7. Let's use your event-learning workflow
+
+You had:
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+Suppose you create a PR.
+
+GitHub knows:
+
+Event:
+pull_request
+
+Action:
+opened
+
+Repository:
+indura08/Github-Actions-Tutorial
+
+Branch:
+example-branches/test
+
+Commit:
+abc123
+
+You can access some of this through the GitHub context.
+
+For example:
+
+- run: |
+    echo "Repository: ${{ github.repository }}"
+    echo "Event: ${{ github.event_name }}"
+    echo "Actor: ${{ github.actor }}"
+
+GitHub processes those ${{ }} expressions and gives the resulting values to the step.
+
+8. And the same information can often appear as environment variables
+
+You could instead write:
+
+- run: |
+    echo "Repository: $GITHUB_REPOSITORY"
+    echo "Event: $GITHUB_EVENT_NAME"
+    echo "Actor: $GITHUB_ACTOR"
+
+So when you're learning, you can remember:
+
+${{ github.something }}
+        │
+        │ GitHub context
+        │
+        ▼
+GitHub Actions information
+
+
+$GITHUB_SOMETHING
+        │
+        │ environment variable
+        │
+        ▼
+Runner's environment
+9. The biggest reason contexts matter: if
+
+This is probably the easiest place to see why they exist.
+
+Suppose you only want deployment when you're on main.
+
+You can write:
+
+- name: Deploy
+  if: ${{ github.ref == 'refs/heads/main' }}
+  run: ./deploy.sh
+
+GitHub evaluates:
+
+github.ref
+
+If it is:
+
+refs/heads/main
+
+then the step runs.
+
+Otherwise, GitHub skips it.
+
+So:
+
+        GitHub
+          │
+          ▼
+     github.ref
+          │
+          ▼
+  Is it main branch?
+       /       \
+     YES        NO
+      │          │
+      ▼          ▼
+    run        skip
+
+This is one of the major reasons you need to understand contexts.
+
+10. Another very simple example
+
+Suppose your workflow runs on:
+
+on:
+  push:
+
+You want to print:
+
+"Someone pushed code."
+
+You can use:
+
+- run: echo "Event was $GITHUB_EVENT_NAME"
+
+or:
+
+- run: echo "Event was ${{ github.event_name }}"
+
+Both can give:
+
+Event was push
+
+But if you want to control whether a step runs, you use the context:
+
+- name: Only on push
+  if: ${{ github.event_name == 'push' }}
+  run: echo "This was a push"
+11. Don't think of Context as another computer/environment
+
+This is probably where you were getting confused.
+
+A context isn't:
+
+another machine
+another server
+another environment
+
+It's basically a collection of information that GitHub Actions knows about the current workflow run.
+
+For example:
+
+github context
+│
+├── repository
+├── actor
+├── ref
+├── sha
+├── event_name
+├── workflow
+├── run_id
+└── event
+
+You can access them with:
+
+${{ github.repository }}
+${{ github.actor }}
+${{ github.ref }}
+${{ github.sha }}
+${{ github.event_name }}
+
+Think:
+
+Context = information about what's happening with my workflow.
+
+That's enough for now.
+
+12. There are multiple contexts
+
+You don't need to memorize them yet, but you will see names like:
+
+github
+env
+vars
+secrets
+job
+steps
+runner
+needs
+matrix
+
+For example:
+
+github
+
+Information about the GitHub event/workflow:
+
+${{ github.repository }}
+${{ github.ref }}
+${{ github.sha }}
+env
+
+Your environment variables:
+
+${{ env.APP_NAME }}
+
+If you have:
+
+env:
+  APP_NAME: caprome
+
+then:
+
+${{ env.APP_NAME }}
+
+gives:
+
+caprome
+secrets
+
+Your GitHub secrets:
+
+${{ secrets.DATABASE_PASSWORD }}
+runner
+
+Information about the current runner:
+
+${{ runner.os }}
+
+which could give:
+
+Linux
+13. This gives you a very useful picture
+
+Think of GitHub Actions as having two sides:
+
+                 GitHub Actions
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+       GitHub side          Runner side
+             │                   │
+       Contexts              Environment
+             │                   │
+     ${{ github.ref }}       $GITHUB_REF
+     ${{ github.sha }}       $GITHUB_SHA
+     ${{ github.actor }}     $GITHUB_ACTOR
+             │                   │
+             └─────────┬─────────┘
+                       │
+                       ▼
+                     Steps
+
+You don't have to memorize this diagram. Just remember:
+
+Contexts are GitHub Actions' information.
+
+Environment variables are values available to programs running on the runner.
+
+14. One last important example
+
+Look at:
+
+jobs:
+  deploy:
+    if: ${{ github.ref == 'refs/heads/main' }}
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - run: echo "Deploying $GITHUB_SHA"
+
+There are two different things happening.
+
+Before the runner/job runs:
+if: ${{ github.ref == 'refs/heads/main' }}
+
+GitHub asks:
+
+Is this the main branch?
+
+That's context.
+
+After the runner starts:
+run: echo "Deploying $GITHUB_SHA"
+
+The shell asks:
+
+What's the value of GITHUB_SHA?
+
+That's an environment variable.
+
+So:
+
+GitHub decides
+      ↓
+${{ github.ref }}
+      ↓
+Should job run?
+      ↓
+YES
+      ↓
+Runner starts
+      ↓
+$GITHUB_SHA
+      ↓
+Shell executes command
+The 3 things I want you to remember for now
+
+Don't try to memorize all the GitHub contexts yet.
+
+Just remember these:
+
+① Normal environment variable
+env:
+  APP_ENV: production
+
+Use in shell:
+
+$APP_ENV
+② GitHub's built-in environment variable
+
+GitHub gives you things like:
+
+$GITHUB_SHA
+$GITHUB_REF
+$GITHUB_EVENT_NAME
+$GITHUB_REPOSITORY
+
+You didn't create them.
+
+③ Context
+
+GitHub provides information through:
+
+${{ github.sha }}
+${{ github.ref }}
+${{ github.event_name }}
+${{ github.repository }}
+
+This is especially useful when GitHub itself needs to make a decision, such as:
+
+if: ${{ github.ref == 'refs/heads/main' }}
+
+If you understand those three distinctions, you've understood the foundation. The next thing I'd teach you is github context + if expressions with 5–6 tiny practical examples, because that's where contexts will stop feeling abstract.
+
