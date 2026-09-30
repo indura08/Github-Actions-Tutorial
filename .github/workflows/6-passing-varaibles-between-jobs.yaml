@@ -11,7 +11,7 @@ jobs:
         steps:
             - name: Generate and export foo
               id: generate-foo
-              run: |
+              run: |                            #for all action run step gets its own shell process so diffrent runs have diffrent shell processes
                 foo=bar
 
                 # 1) step output (for job output)
