@@ -4,7 +4,7 @@ on:
     workflow_dispatch:
 
 env:
-    workflow_var: I_AM_WORKFLOW_SCOPED
+    WORKFLOW_VAR: I_AM_WORKFLOW_SCOPED
 
 jobs:
     job-1:
